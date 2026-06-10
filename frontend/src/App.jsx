@@ -195,54 +195,94 @@ function Tabs({ tab, setTab, alertCount }) {
 }
 
 function StatusBar({ risk }) {
+  const kp = risk?.kp_now;
+  const bz = risk?.bz_now;
+  const wind = risk?.wind_speed_now;
+  const gScale = risk?.g_scale ?? 0;
+  const sScale = risk?.s_scale ?? 0;
+  const rScale = risk?.r_scale ?? 0;
+
   const metrics = [
     {
       label: "Kp index",
-      value: risk?.kp_now !== undefined ? Number(risk.kp_now).toFixed(1) : "—",
-      sub: risk?.kp_now >= 5 ? "Storm" : "Quiet",
+      value: kp !== undefined && kp !== null ? Number(kp).toFixed(1) : "—",
+      sub: kp >= 5 ? "Geomagnetic storm conditions" : "Quiet or unsettled conditions",
+      level: kp >= 7 ? "high" : kp >= 5 ? "elevated" : "nominal",
+      description:
+        "The Kp index measures global geomagnetic activity on a scale from 0 to 9.",
+      interpretation:
+        "Values below 5 are usually quiet. Kp 5 or higher means geomagnetic storm conditions may affect satellites, navigation and power systems.",
     },
     {
-      label: "Bz (nT)",
-      value: risk?.bz_now !== null && risk?.bz_now !== undefined
-        ? Number(risk.bz_now).toFixed(1)
-        : "—",
-      sub: risk?.bz_now < -10 ? "Southward" : "Stable",
+      label: "IMF Bz",
+      value:
+        bz !== null && bz !== undefined
+          ? `${Number(bz).toFixed(1)} nT`
+          : "—",
+      sub: bz < -10 ? "Southward magnetic field" : "Stable magnetic orientation",
+      level: bz < -10 ? "elevated" : "nominal",
+      description:
+        "Bz is the north-south component of the interplanetary magnetic field.",
+      interpretation:
+        "Negative Bz values are more geoeffective. A strong southward Bz allows solar wind energy to couple more efficiently with Earth's magnetosphere.",
     },
     {
-      label: "Wind speed",
-      value: risk?.wind_speed_now
-        ? `${Math.round(risk.wind_speed_now)} km/s`
-        : "—",
-      sub: risk?.wind_speed_now > 600 ? "Elevated" : "Normal",
+      label: "Solar wind speed",
+      value: wind ? `${Math.round(wind)} km/s` : "—",
+      sub: wind > 600 ? "Fast solar wind stream" : "Normal solar wind speed",
+      level: wind > 700 ? "high" : wind > 600 ? "elevated" : "nominal",
+      description:
+        "Solar wind speed indicates how fast charged particles are travelling from the Sun toward Earth.",
+      interpretation:
+        "Higher speeds can increase geomagnetic activity, especially when combined with negative Bz and increased density.",
     },
     {
       label: "G-scale",
-      value: `G${risk?.g_scale ?? 0}`,
-      sub: SCALE_LABELS[risk?.g_scale ?? 0] || "Quiet",
+      value: `G${gScale}`,
+      sub: SCALE_LABELS[gScale] || "Quiet",
+      level: gScale >= 3 ? "high" : gScale >= 1 ? "elevated" : "nominal",
+      description:
+        "NOAA G-scale describes geomagnetic storm intensity.",
+      interpretation:
+        "Higher G values indicate greater risk for satellite drag, GNSS degradation, aurora expansion and possible power grid impacts.",
     },
     {
       label: "S-scale",
-      value: `S${risk?.s_scale ?? 0}`,
-      sub: SCALE_LABELS[risk?.s_scale ?? 0] || "None",
+      value: `S${sScale}`,
+      sub: SCALE_LABELS[sScale] || "None",
+      level: sScale >= 3 ? "high" : sScale >= 1 ? "elevated" : "nominal",
+      description:
+        "NOAA S-scale describes solar radiation storm intensity.",
+      interpretation:
+        "Radiation storms can affect astronauts, high-altitude aviation, satellite electronics and polar communications.",
     },
     {
       label: "R-scale",
-      value: `R${risk?.r_scale ?? 0}`,
-      sub: SCALE_LABELS[risk?.r_scale ?? 0] || "None",
+      value: `R${rScale}`,
+      sub: SCALE_LABELS[rScale] || "None",
+      level: rScale >= 3 ? "high" : rScale >= 1 ? "elevated" : "nominal",
+      description:
+        "NOAA R-scale describes radio blackout intensity caused by solar X-ray flares.",
+      interpretation:
+        "Higher R values may cause HF radio degradation, navigation issues and communications outages on the sunlit side of Earth.",
     },
   ];
 
-    return (
-      <div className="metric-grid" style={{ marginTop: 14 }}>
+  return (
+    <section style={{ marginTop: 14 }}>
+      <SectionHeader
+        eyebrow="Live indicators"
+        title="Current space weather conditions"
+        description="These values summarise the current near-Earth space environment and explain why the global operational risk level is nominal, elevated, high or severe."
+      />
+
+      <div className="metric-grid">
         {metrics.map((m) => (
-          <div key={m.label} className="metric-card">
-            <div className="metric-label">{m.label}</div>
-            <div className="metric-value">{m.value}</div>
-            <div className="metric-sub">{m.sub}</div>
-          </div>
+          <MetricInfoCard key={m.label} {...m} />
         ))}
       </div>
-    );
+    </section>
+  );
 }
 
 function KpChart({ kp }) {
@@ -254,11 +294,14 @@ function KpChart({ kp }) {
   }));
 
   return (
-    <ChartCard title="Kp index — latest samples">
+    <ChartCard
+      title="Kp index — latest samples"
+      description="The Kp index shows global geomagnetic activity. The dashed line at Kp 5 marks the start of geomagnetic storm conditions. Kp 7 indicates strong storm conditions."
+    >
       {data.length === 0 ? (
         <EmptyState text="Waiting for Kp data from NOAA SWPC..." />
       ) : (
-        <ResponsiveContainer width="100%" height={140}>
+        <ResponsiveContainer width="100%" height={160}>
           <LineChart data={data} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
             <XAxis dataKey="t" tick={{ fontSize: 11, fill: "#93a4b8" }} interval={3} />
             <YAxis domain={[0, 9]} tick={{ fontSize: 11, fill: "#93a4b8" }} ticks={[0, 3, 5, 7, 9]} />
@@ -282,25 +325,39 @@ function BzChart({ swHistory }) {
   }));
 
   return (
-    <ChartCard title="IMF Bz — latest samples">
-      <ResponsiveContainer width="100%" height={140}>
-        <LineChart data={data} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
-          <XAxis dataKey="t" tick={{ fontSize: 11, fill: "#93a4b8" }} interval={9} />
-          <YAxis tick={{ fontSize: 11, fill: "#93a4b8" }} />
-          <Tooltip formatter={(v) => [`${Number(v).toFixed(1)} nT`, "Bz"]} />
-          <ReferenceLine y={0} stroke="#cccccc" />
-          <ReferenceLine y={-10} stroke="#BA7517" strokeDasharray="3 3" />
-          <Line type="monotone" dataKey="bz" stroke="#818cf8" strokeWidth={2} dot={false} />
-        </LineChart>
-      </ResponsiveContainer>
+    <ChartCard
+      title="IMF Bz — latest samples"
+      description="Bz shows the north-south direction of the interplanetary magnetic field. Negative values are important because they can connect more efficiently with Earth's magnetic field."
+    >
+      {data.length === 0 ? (
+        <EmptyState text="Waiting for IMF Bz data..." />
+      ) : (
+        <ResponsiveContainer width="100%" height={160}>
+          <LineChart data={data} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+            <XAxis dataKey="t" tick={{ fontSize: 11, fill: "#93a4b8" }} interval={9} />
+            <YAxis tick={{ fontSize: 11, fill: "#93a4b8" }} />
+            <Tooltip formatter={(v) => [`${Number(v).toFixed(1)} nT`, "Bz"]} />
+            <ReferenceLine y={0} stroke="#cccccc" />
+            <ReferenceLine y={-10} stroke="#BA7517" strokeDasharray="3 3" />
+            <Line type="monotone" dataKey="bz" stroke="#818cf8" strokeWidth={2} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      )}
     </ChartCard>
   );
 }
 
-function ChartCard({ title, children }) {
+function ChartCard({ title, description, children }) {
   return (
     <div className="card card-pad">
       <div className="section-title">{title}</div>
+
+      {description && (
+        <InfoText>
+          {description}
+        </InfoText>
+      )}
+
       {children}
     </div>
   );
@@ -955,9 +1012,18 @@ function MissionHero({ risk, sources }) {
           </div>
 
           <div style={{ color: "var(--text-muted)", fontSize: 14, lineHeight: 1.7, maxWidth: 680 }}>
-            Monitoring solar wind, geomagnetic activity, radio blackout conditions, solar radiation scales,
-            official NOAA alerts and NASA DONKI solar event chains.
-          </div>
+              This dashboard combines real-time solar wind measurements, geomagnetic indices,
+              NOAA alert products and NASA DONKI event data to estimate the current operational
+              impact of space weather.
+            </div>
+
+            <HelpBox title="What does this level mean?">
+              The global risk level is calculated from several indicators: Kp index, IMF Bz,
+              solar wind speed, NOAA G/S/R scales, active alerts and detected solar events.
+              A nominal level means no relevant operational impact is expected. Elevated or
+              higher levels indicate increasing potential impact on spacecraft operations,
+              communications, navigation or ground infrastructure.
+            </HelpBox>
         </div>
 
         <div
@@ -1004,43 +1070,24 @@ function ForecastPanel({ forecast }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div className="card card-pad">
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div>
-            <div className="section-title">Space weather forecast</div>
-            <div
-              style={{
-                fontSize: 24,
-                fontWeight: 800,
-                letterSpacing: "-0.04em",
-              }}
-            >
-              CME arrival outlook
-            </div>
-          </div>
+        <SectionHeader
+          eyebrow="Space weather forecast"
+          title="CME arrival outlook"
+          description="This panel lists possible Coronal Mass Ejection arrivals detected or estimated from solar event data. A CME can disturb Earth's magnetosphere if it is Earth-directed and magnetically favourable."
+          right={<RiskBadge level={items.length ? "elevated" : "nominal"} />}
+        />
 
-          <div style={{ marginLeft: "auto" }}>
-            <RiskBadge level={items.length ? "elevated" : "nominal"} />
-          </div>
-        </div>
+        <HelpBox title="How to read this forecast">
+          Estimated arrival is the predicted time when a CME-driven disturbance may reach Earth.
+          Confidence indicates how reliable the current forecast is. A low confidence event should
+          be treated as something to monitor, not as a confirmed impact.
+        </HelpBox>
 
-        <div
-          style={{
-            fontSize: 14,
-            lineHeight: 1.7,
-            marginTop: 14,
-            color: "var(--text-muted)",
-          }}
-        >
+        <div className="forecast-summary">
           {forecast.summary ?? "No forecast summary available."}
         </div>
 
-        <div
-          style={{
-            marginTop: 10,
-            fontSize: 12,
-            color: "var(--text-soft)",
-          }}
-        >
+        <div className="forecast-count">
           Forecast items: {forecast.count ?? items.length}
         </div>
       </div>
@@ -1158,6 +1205,10 @@ function OperationalEventsPanel({ events }) {
   if (!items.length) {
     return (
       <Panel title="Operational events">
+        <InfoText>
+          This panel shows relevant solar and geomagnetic events detected from external sources.
+          Events can include solar flares, CMEs, geomagnetic storms and operational alert products.
+        </InfoText>
         <EmptyState text="No operational events available." />
       </Panel>
     );
@@ -1165,6 +1216,11 @@ function OperationalEventsPanel({ events }) {
 
   return (
     <Panel title={`Operational events (${items.length})`}>
+      <InfoText>
+        These events are normalized from different data providers. Severity is inferred from
+        available properties such as flare class, CME speed, Kp index or NOAA alert type.
+      </InfoText>
+
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {items.map((event, index) => (
           <OperationalEventRow
@@ -1273,88 +1329,54 @@ function OperationalEventRow({ event }) {
 }
 
 function ForecastCmeRow({ item }) {
+  const confidence = item.confidence ?? "low";
+
+  const confidenceLevel = {
+    high: "high",
+    medium: "elevated",
+    low: "nominal",
+  }[String(confidence).toLowerCase()] ?? "nominal";
+
   return (
     <div className="event-row">
       <div>
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 800,
-            color: "var(--accent-yellow)",
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-          }}
-        >
-          {item.confidence ?? "low"} confidence
-        </div>
+        <RiskBadge level={confidenceLevel} />
 
-        <div
-          style={{
-            fontSize: 10,
-            color: "var(--text-soft)",
-            marginTop: 3,
-          }}
-        >
-          {item.start_time ? String(item.start_time).slice(0, 16) : ""}
+        <div className="event-time">
+          Start: {item.start_time ? String(item.start_time).slice(0, 16) : "Unknown"}
         </div>
       </div>
 
       <div>
-        <div style={{ fontSize: 13, fontWeight: 700 }}>
+        <div className="event-title">
           {item.title ?? "Coronal Mass Ejection"}
         </div>
 
-        <div
-          style={{
-            fontSize: 12,
-            color: "var(--text-muted)",
-            lineHeight: 1.5,
-            marginTop: 4,
-          }}
-        >
-          Estimated arrival:{" "}
-          <strong style={{ color: "var(--text-main)" }}>
-            {item.estimated_arrival
-              ? String(item.estimated_arrival).slice(0, 16)
-              : "Unknown"}
-          </strong>
+        <div className="event-summary">
+          A CME is a large eruption of plasma and magnetic field from the Sun.
+          If Earth-directed, it may trigger geomagnetic activity after arrival.
         </div>
 
-        <div
-          style={{
-            fontSize: 10,
-            color: "var(--text-soft)",
-            marginTop: 6,
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-          }}
-        >
-          Forecast item
+        <div className="event-detail-grid">
+          <div>
+            <span>Estimated arrival</span>
+            <strong>
+              {item.estimated_arrival
+                ? String(item.estimated_arrival).slice(0, 16)
+                : "Unknown"}
+            </strong>
+          </div>
+
+          <div>
+            <span>Confidence</span>
+            <strong>{confidence}</strong>
+          </div>
         </div>
       </div>
 
-      <div style={{ textAlign: "right" }}>
-        <div
-          style={{
-            fontSize: 10,
-            color: "var(--accent-blue)",
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-            fontWeight: 700,
-          }}
-        >
-          {item.source ?? "NASA DONKI"}
-        </div>
-
-        <div
-          style={{
-            fontSize: 10,
-            color: "var(--text-soft)",
-            marginTop: 3,
-          }}
-        >
-          CME analysis
-        </div>
+      <div className="event-source">
+        <div>{item.source ?? "NASA DONKI"}</div>
+        <span>CME analysis</span>
       </div>
     </div>
   );
@@ -1464,4 +1486,68 @@ function buildEventSummary(event) {
   }
 
   return JSON.stringify(event).slice(0, 240);
+}
+
+function InfoText({ children }) {
+  return (
+    <p className="info-text">
+      {children}
+    </p>
+  );
+}
+
+function HelpBox({ title, children }) {
+  return (
+    <div className="help-box">
+      <div className="help-box-title">{title}</div>
+      <div className="help-box-body">{children}</div>
+    </div>
+  );
+}
+
+function MetricInfoCard({ label, value, sub, description, interpretation, level }) {
+  return (
+    <div className="metric-card metric-card-explained">
+      <div className="metric-card-header">
+        <div>
+          <div className="metric-label">{label}</div>
+          <div className="metric-value">{value}</div>
+        </div>
+
+        {level && <RiskBadge level={level} />}
+      </div>
+
+      <div className="metric-sub">{sub}</div>
+
+      {description && (
+        <div className="metric-description">
+          {description}
+        </div>
+      )}
+
+      {interpretation && (
+        <div className="metric-interpretation">
+          <strong>Meaning:</strong> {interpretation}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SectionHeader({ eyebrow, title, description, right }) {
+  return (
+    <div className="section-header">
+      <div>
+        {eyebrow && <div className="section-title">{eyebrow}</div>}
+        <h2 className="section-heading">{title}</h2>
+        {description && <p className="section-description">{description}</p>}
+      </div>
+
+      {right && (
+        <div className="section-header-right">
+          {right}
+        </div>
+      )}
+    </div>
+  );
 }

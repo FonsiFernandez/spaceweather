@@ -3,6 +3,8 @@
 Sistema de monitoreo de clima espacial con datos reales de NOAA SWPC y NASA DONKI.
 Diseñado como prototipo de monitoring/alerting para activos espaciales y terrestre.
 
+![img.png](resources/img.png)
+
 ## Arquitectura
 
 ```

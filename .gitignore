@@ -142,3 +142,6 @@ yarn.lock
 *.njsproj
 *.sln
 *.sw?
+
+.venv
+venv

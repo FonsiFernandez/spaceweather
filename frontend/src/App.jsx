@@ -9,6 +9,9 @@ import {
   ReferenceLine,
 } from "recharts";
 
+import SpaceWeatherVisualPanel from "./SpaceWeatherVisualPanel";
+import HeliosphericPremiumPanel from "./HeliosphericPremiumPanel";
+
 const API = "http://localhost:8000";
 const POLL_MS = 15_000;
 
@@ -111,9 +114,15 @@ export default function App() {
 
         {tab === "overview" && (
           <>
-            <OperationalBriefingCard briefing={briefingData} />
-            <WatchConditionsPanel items={watchItems} />
             <StatusBar risk={risk} />
+            <OperationalBriefingCard briefing={briefingData} />
+            <HeliosphericPremiumPanel
+              risk={risk}
+              forecast={forecast}
+              events={operationalEvents}
+            />
+            <SpaceWeatherVisualPanel risk={risk} forecast={forecast} />
+            <WatchConditionsPanel items={watchItems} />
 
             <div className="grid-2">
               <KpChart kp={kp} />
